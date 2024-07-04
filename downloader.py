@@ -184,7 +184,7 @@ def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
     cmd = FFmpeg(
         global_options=global_options,
         inputs=inputs,
-        outputs={output_path: "-c:v copy -c:a aac -c:s mov_text"}
+        outputs={output_path: "-c:v copy -c:a copy -c:s mov_text"}
     )
     try:
         cmd.run()
