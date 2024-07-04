@@ -174,8 +174,15 @@ def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
     if(subtitle_path != None):
         inputs[subtitle_path] = None
 
+    global_options = "-loglevel quiet -y"
+
+    if "FFMPEG_GLOBAL_FLAGS" in environ:
+        flags = environ["FFMPEG_GLOBAL_FLAGS"]
+        global_options = global_options + f" {flags}"
+
+    logger.info(global_options)
     cmd = FFmpeg(
-        global_options="-loglevel quiet -y",
+        global_options=global_options,
         inputs=inputs,
         outputs={output_path: "-c:v copy -c:a aac -c:s mov_text"}
     )
