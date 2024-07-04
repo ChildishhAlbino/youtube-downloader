@@ -2,14 +2,16 @@ from pytube import YouTube, Playlist
 from ffmpy import FFmpeg
 from os.path import exists
 from os import makedirs, remove, environ
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import xml.etree.ElementTree as ElementTree
 from html import unescape
 import time
 import math
 import logging
 
+MAX_PROCESS_WORKERS_KEY="MAX_PROCESS_WORKERS"
 base_path = environ.get("YT_DOWNLOADER_PATH")
+max_process_workers = int(environ.get(MAX_PROCESS_WORKERS_KEY)) if MAX_PROCESS_WORKERS_KEY in environ else 4
 args = []
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -45,16 +47,13 @@ def download_playlist(url, options):
     with ThreadPoolExecutor() as t:
         mapped = t.map(get_video_from_url, playlist.video_urls)
         mapped = [(item, folder_name, options) for item in mapped]
-    logger.info(len(mapped))
-
-    with ThreadPoolExecutor() as t:
+    with ProcessPoolExecutor(max_workers=max_process_workers) as t:
         mapped = t.map(download_video_direct, mapped)
         mapped = [item for item in mapped]
     logger.info(mapped)
     if should_convert_mp3:
         with ThreadPoolExecutor() as t:
             mapped = t.map(convert_to_mp3, mapped)
-
 
 def get_video_from_url(video):
     try:

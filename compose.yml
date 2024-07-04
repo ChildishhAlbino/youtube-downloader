@@ -21,6 +21,7 @@ services:
       REDIS_HOSTNAME: redis
       QUEUE_NAME: YT_DOWNLOADER_QUEUE
       FFMPEG_GLOBAL_FLAGS: ${FFMPEG_GLOBAL_FLAGS}
+      MAX_PROCESS_WORKERS: ${MAX_PROCESS_WORKERS:-4}
     depends_on:
       - redis
     volumes:
