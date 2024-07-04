@@ -104,11 +104,11 @@ def download_video_direct(args):
         logger.debug("Highest Quality Audio Stream: " + str(highest_quality_audio_stream))
         logger.info("Downloading Streams...")
         video_res = highest_quality_video_stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix="__VIDEO__", max_retries=10) if (should_download_video) else None
-        logger.info("Video stream downloaded... You're like most of the way there!")
+        logger.info(f"{video.title} | Video stream downloaded... You're like most of the way there!")
         audio_res = highest_quality_audio_stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix="__AUDIO__", max_retries=10) if (should_download_audio) else None
         subtitle_file_path=None
         english_captions = video.captions['en'] if "en" in video.captions else None
-        logger.info("Streams downloaded! Don't accidentally cross them!!")
+        logger.info(f"{video.title} | Streams downloaded! Don't accidentally cross them!!")
 
         if(english_captions != None):
             try:
