@@ -92,6 +92,31 @@ def convert_subtitles_to_srt(xml):
         segments.append(line)
     return "\n".join(segments).strip()
 
+BASE_RETRY_DELAY = 10
+def download_with_delayed_retry(source_title, stream, destination_folder_path, prefix):
+    res = None
+    fib1 = 0
+    fib2 = 1
+    while(res == None):
+        try:    
+            res = stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix=prefix, max_retries=10)
+        except Exception as ex:
+            sleep_duration = BASE_RETRY_DELAY * fib2
+            logger.error(f"Error when downloading stream - retrying in {sleep_duration} seconds. Details: {ex}")
+            time.sleep(sleep_duration)
+            temp = fib2
+            fib2 = fib2 + fib1
+            fib1 = temp
+            logger.info(f"fib1 = {fib1} | fib2 = {fib2}")
+            if(fib2 > 30):
+                logger.warn(f"Sleep time ({sleep_duration} seconds) is getting very long. Please check errors and kill the job.")
+            if(fib2 > 100):
+                raise Exception(f"{source_title} || was retrying for way too long. Fix ya shtuff...")
+    logger.info(f"{source_title} || {stream.type} is Completed.")
+    return res
+
+
+
 def download_video_direct(args):
     (video, folder_name, options) = args
     (should_download_video, should_download_audio, _) = options
@@ -102,10 +127,9 @@ def download_video_direct(args):
         logger.debug("Highest Quality Video Stream: " + str(highest_quality_video_stream))
         highest_quality_audio_stream = get_highest_quality_audio_stream(video)
         logger.debug("Highest Quality Audio Stream: " + str(highest_quality_audio_stream))
-        logger.info("Downloading Streams...")
-        video_res = highest_quality_video_stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix="__VIDEO__", max_retries=10) if (should_download_video) else None
-        logger.info(f"{video.title} | Video stream downloaded... You're like most of the way there!")
-        audio_res = highest_quality_audio_stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix="__AUDIO__", max_retries=10) if (should_download_audio) else None
+        video_res = download_with_delayed_retry(video.title, highest_quality_video_stream, destination_folder_path, "__VIDEO__") if (should_download_video) else None
+        audio_res = download_with_delayed_retry(video.title, highest_quality_audio_stream, destination_folder_path, "__AUDIO__") if (should_download_audio) else None
+    
         subtitle_file_path=None
         english_captions = video.captions['en'] if "en" in video.captions else None
         logger.info(f"{video.title} | Streams downloaded! Don't accidentally cross them!!")
@@ -194,6 +218,7 @@ def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
         logger.error(ex)
 
 def download(url, content_mask):
+    
     options = set_options(content_mask)
     if "/playlist?list=" in url:
         download_playlist(url, options)

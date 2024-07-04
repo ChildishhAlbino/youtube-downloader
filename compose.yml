@@ -27,6 +27,8 @@ services:
       - redis
     volumes:
       - ${OUTPUT_FILE_PATH}:/usr/src/app/downloads
+    deploy:
+      replicas: ${NUM_WORKERS:-1}
   redis:
     image: "redis:alpine"
     ports:
