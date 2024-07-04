@@ -1,0 +1,29 @@
+services:
+  handler:
+    build:
+      context: .
+      dockerfile: handler.Dockerfile
+    environment:
+      YT_DOWNLOADER_PATH: ${OUTPUT_FILE_PATH}
+      REDIS_HOSTNAME: redis
+      QUEUE_NAME: YT_DOWNLOADER_QUEUE
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    environment:
+      YT_DOWNLOADER_PATH: ${OUTPUT_FILE_PATH}
+      REDIS_HOSTNAME: redis
+      QUEUE_NAME: YT_DOWNLOADER_QUEUE
+    depends_on:
+      - redis
+    volumes:
+      - ${OUTPUT_FILE_PATH}:/usr/src/app/downloads
+  redis:
+    image: "redis:alpine"
+    ports:
+    - "6379:6379"
