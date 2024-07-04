@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: handler.Dockerfile
     environment:
-      YT_DOWNLOADER_PATH: ${OUTPUT_FILE_PATH}
+      YT_DOWNLOADER_PATH: ./downloads
       REDIS_HOSTNAME: redis
       QUEUE_NAME: YT_DOWNLOADER_QUEUE
     ports:
@@ -12,11 +12,12 @@ services:
     depends_on:
       - redis
   worker:
+    user: 0:0
     build:
       context: .
       dockerfile: worker.Dockerfile
     environment:
-      YT_DOWNLOADER_PATH: ${OUTPUT_FILE_PATH}
+      YT_DOWNLOADER_PATH: ./downloads
       REDIS_HOSTNAME: redis
       QUEUE_NAME: YT_DOWNLOADER_QUEUE
     depends_on:
