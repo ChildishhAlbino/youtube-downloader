@@ -42,8 +42,8 @@ def download_playlist(url, options):
     logger.info(playlist.title)
     folder_name = replace_illegal_chars(playlist.title)
     make_download_folder(folder_name)
-    logger.info(playlist)
-    logger.info(len(playlist.video_urls))
+    logger.debug(playlist)
+    logger.debug(f"Playlist length: {len(playlist.video_urls)}")
     with ThreadPoolExecutor() as t:
         mapped = t.map(get_video_from_url, playlist.video_urls)
         mapped = [(item, folder_name, options) for item in mapped]
@@ -58,7 +58,6 @@ def download_playlist(url, options):
 def get_video_from_url(video):
     try:
         video = YouTube(video)
-        logger.info(video.title)
         return video
     except Exception:
         return None
@@ -96,25 +95,26 @@ def convert_subtitles_to_srt(xml):
 def download_video_direct(args):
     (video, folder_name, options) = args
     (should_download_video, should_download_audio, _) = options
+    destination_folder_path=get_folder_path(folder_name)
     try:
         logger.info("Downloading Video: %s" % video.title)
         highest_quality_video_stream = get_highest_quality_video_stream(video)
-        logger.info("Highest Quality Video Stream: " + str(highest_quality_video_stream))
-        hqas = get_highest_quality_audio_stream(video)
-        logger.info("Highest Quality Audio Stream: " + str(hqas))
+        logger.debug("Highest Quality Video Stream: " + str(highest_quality_video_stream))
+        highest_quality_audio_stream = get_highest_quality_audio_stream(video)
+        logger.debug("Highest Quality Audio Stream: " + str(highest_quality_audio_stream))
         logger.info("Downloading Streams...")
-        temp_output_path=get_folder_path(folder_name)
-        video_res = highest_quality_video_stream.download(skip_existing=True, output_path=temp_output_path, filename_prefix="__VIDEO__", max_retries=4) if (should_download_video) else None
-        audio_res = hqas.download(skip_existing=True, output_path=temp_output_path, filename_prefix="__AUDIO__", max_retries=4) if (should_download_audio) else None
-        logger.info("Streams downloaded! Don't accidentally cross them!!")
+        video_res = highest_quality_video_stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix="__VIDEO__", max_retries=10) if (should_download_video) else None
+        logger.info("Video stream downloaded... You're like most of the way there!")
+        audio_res = highest_quality_audio_stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix="__AUDIO__", max_retries=10) if (should_download_audio) else None
         subtitle_file_path=None
         english_captions = video.captions['en'] if "en" in video.captions else None
-        logger.info(english_captions)
+        logger.info("Streams downloaded! Don't accidentally cross them!!")
+
         if(english_captions != None):
             try:
                 srt_captions = convert_subtitles_to_srt(english_captions.xml_captions)
                 subtitle_file_path = video_res.replace("__VIDEO__", "__SUBTITLES__").replace(".mp4", ".srt")
-                logger.info(subtitle_file_path)
+                logger.debug(subtitle_file_path)
                 with open(subtitle_file_path, "w") as f:
                     f.write(srt_captions)
             except Exception as ex:
@@ -132,7 +132,8 @@ def download_video_direct(args):
             return audio_res
         else:
             return video_res
-    except Exception:
+    except Exception as ex:
+        logger.error(f"Error when downloading video: {video.title}... Details: {ex}")
         return None
 
 def download_video(url, options):
@@ -168,7 +169,8 @@ def convert_to_mp3(filePath):
     return cmd.cmd
 
 def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
-    logger.info("Creating merged file: %s" % output_path)
+    logger.info("Crossing the streams...")
+    logger.debug("Creating merged file: %s" % output_path)
     inputs = {video_path: None, audio_path: None}
     if(subtitle_path != None):
         inputs[subtitle_path] = None
@@ -223,7 +225,11 @@ def set_options(mask):
     return (should_download_video, should_download_audio, should_convert_mp3)
 
 def handle_download(url, mask):
-    logger.info(str((url, mask)))
+    starting_time = time.perf_counter()
     download(url, mask)
-    logger.error("DONE!")
+    ending_time = time.perf_counter()
+    delta = ending_time - starting_time
+    output = delta / 60 if delta >= 60 else delta
+    unit_label = "minutes" if delta >= 60 else "seconds"
+    logger.info(f"Request completed in {output:.2f} {unit_label}")
     return url

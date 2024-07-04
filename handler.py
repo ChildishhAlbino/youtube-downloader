@@ -33,8 +33,15 @@ def hello():
     return render_template('index.html')
 
 def runApp():
-    app.run(host='0.0.0.0', debug=True, port=5000)
-
+    should_be_debug = environ["DEBUG"]
+    host = "0.0.0.0"
+    port = 5000
+    app.logger.info(f"{bool(should_be_debug)}")
+    if(bool(should_be_debug) == True):
+        app.run(host=host, debug=True, port=port)
+    else:
+        from waitress import serve
+        serve(app, host=host, port=port)
 if __name__ == "__main__":
     try:
         runApp()
