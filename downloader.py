@@ -8,6 +8,8 @@ from html import unescape
 import time
 import math
 import logging
+import uuid
+import shutil
 
 MAX_PROCESS_WORKERS_KEY="MAX_PROCESS_WORKERS"
 base_path = environ.get("YT_DOWNLOADER_PATH")
@@ -30,27 +32,37 @@ def get_folder_path(folder_name):
     else:
         return base_path
 
-def make_download_folder(folder_name):
+def make_folder_if_not_exists(folder_name):
     path = get_folder_path(folder_name)
+    logger.info(f"Checking if path={path} exists...")
     if not exists(path):
         logger.info("MAKING DIRECTORY " + str(path))
         makedirs(path)
 
-def download_playlist(url, options):
+
+def get_path_section_if_exists(section):
+    if(section):
+        return f"/{section}"
+    else:
+        return ""
+
+def download_playlist(job_id, url, options):
     (_, __, should_convert_mp3) = options
     playlist = Playlist(url)
     logger.info(playlist.title)
     folder_name = replace_illegal_chars(playlist.title)
-    make_download_folder(folder_name)
+    folder_path = f".tmp/{job_id}/{get_path_section_if_exists(folder_name)}"
+    make_folder_if_not_exists(folder_path)
     logger.debug(playlist)
     logger.debug(f"Playlist length: {len(playlist.video_urls)}")
     with ThreadPoolExecutor() as t:
         mapped = t.map(get_video_from_url, playlist.video_urls)
-        mapped = [(item, folder_name, options) for item in mapped]
+        mapped = [(job_id, item, folder_name, options) for item in mapped]
     with ProcessPoolExecutor(max_workers=max_process_workers) as t:
         mapped = t.map(download_video_direct, mapped)
         mapped = [item for item in mapped]
     logger.info(mapped)
+    shutil.rmtree(get_folder_path(f".tmp/{job_id}"))
     if should_convert_mp3:
         with ThreadPoolExecutor() as t:
             mapped = t.map(convert_to_mp3, mapped)
@@ -102,33 +114,34 @@ def download_with_delayed_retry(source_title, stream, destination_folder_path, p
             res = stream.download(skip_existing=True, output_path=destination_folder_path, filename_prefix=prefix, max_retries=10)
         except Exception as ex:
             sleep_duration = BASE_RETRY_DELAY * fib2
-            logger.error(f"Error when downloading stream - retrying in {sleep_duration} seconds. Details: {ex}")
+            logger.error(f"Error when downloading stream for '{source_title}' :: retrying in {sleep_duration} seconds :: Details: {ex}")
             time.sleep(sleep_duration)
             temp = fib2
             fib2 = fib2 + fib1
             fib1 = temp
-            logger.info(f"fib1 = {fib1} | fib2 = {fib2}")
+            logger.debug(f"fib1 = {fib1} | fib2 = {fib2}")
             if(fib2 > 30):
                 logger.warn(f"Sleep time ({sleep_duration} seconds) is getting very long. Please check errors and kill the job.")
             if(fib2 > 100):
-                raise Exception(f"{source_title} || was retrying for way too long. Fix ya shtuff...")
-    logger.info(f"{source_title} || {stream.type} is Completed.")
+                raise Exception(f"'{source_title}' :: was retrying for way too long. Fix ya shtuff...")
+    logger.info(f"'{source_title}' :: {stream.type} is Completed.")
     return res
 
-
-
 def download_video_direct(args):
-    (video, folder_name, options) = args
+    (job_id, video, folder_name, options) = args
     (should_download_video, should_download_audio, _) = options
-    destination_folder_path=get_folder_path(folder_name)
+    optional_path_section = get_path_section_if_exists(folder_name)
+    temporary_folder_path=get_folder_path(f".tmp/{job_id}{optional_path_section}")
+    destination_folder_path=temporary_folder_path.replace(f".tmp/{job_id}{optional_path_section}", f"{optional_path_section}")
+    logger.info(f"temp={temporary_folder_path} :: output={destination_folder_path}")
     try:
         logger.info("Downloading Video: %s" % video.title)
         highest_quality_video_stream = get_highest_quality_video_stream(video)
         logger.debug("Highest Quality Video Stream: " + str(highest_quality_video_stream))
         highest_quality_audio_stream = get_highest_quality_audio_stream(video)
         logger.debug("Highest Quality Audio Stream: " + str(highest_quality_audio_stream))
-        video_res = download_with_delayed_retry(video.title, highest_quality_video_stream, destination_folder_path, "__VIDEO__") if (should_download_video) else None
-        audio_res = download_with_delayed_retry(video.title, highest_quality_audio_stream, destination_folder_path, "__AUDIO__") if (should_download_audio) else None
+        video_res = download_with_delayed_retry(video.title, highest_quality_video_stream, temporary_folder_path, "__VIDEO__") if (should_download_video) else None
+        audio_res = download_with_delayed_retry(video.title, highest_quality_audio_stream, temporary_folder_path, "__AUDIO__") if (should_download_audio) else None
     
         subtitle_file_path=None
         english_captions = video.captions['en'] if "en" in video.captions else None
@@ -138,19 +151,17 @@ def download_video_direct(args):
             try:
                 srt_captions = convert_subtitles_to_srt(english_captions.xml_captions)
                 subtitle_file_path = video_res.replace("__VIDEO__", "__SUBTITLES__").replace(".mp4", ".srt")
-                logger.debug(subtitle_file_path)
+                logger.info(subtitle_file_path)
                 with open(subtitle_file_path, "w") as f:
                     f.write(srt_captions)
             except Exception as ex:
                 logger.info("Generating subtitles did a bad...")
                 logger.info(str(ex))
         if(video_res and audio_res):
-            output_path = video_res.replace("__VIDEO__", "")
+            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path, destination_folder_path)
+            make_folder_if_not_exists(folder_name)
+            logger.info(output_path)
             merge_audio_and_video(video_res, audio_res, subtitle_file_path, output_path)
-            remove(video_res)
-            remove(audio_res)
-            if(subtitle_file_path):
-                remove(subtitle_file_path)
             return output_path
         elif(audio_res):
             return audio_res
@@ -160,10 +171,10 @@ def download_video_direct(args):
         logger.error(f"Error when downloading video: {video.title}... Details: {ex}")
         return None
 
-def download_video(url, options):
+def download_video(job_id, url, options):
     (should_download_video, should_download_audio, should_convert_mp3) = options
     video = YouTube(url)
-    res = download_video_direct((video, None, options))
+    res = download_video_direct((job_id, video, None, options))
     if(should_convert_mp3):
         convert_to_mp3(res)
         if(not should_download_video and should_download_audio):
@@ -216,14 +227,16 @@ def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
     except Exception as ex:
         logger.error("Error when merging...")
         logger.error(ex)
+        raise ex
 
 def download(url, content_mask):
-    
+    job_id = str(uuid.uuid4())
+    make_folder_if_not_exists(f".tmp/{job_id}")
     options = set_options(content_mask)
     if "/playlist?list=" in url:
-        download_playlist(url, options)
+        download_playlist(job_id, url, options)
     elif "/watch?v=" in url:
-        download_video(url, options)
+        download_video(job_id, url, options)
     else:
         logger.info("Please provide a valid Youtube Link.")
 
