@@ -1,5 +1,5 @@
 # save this as app.py
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 from os import environ
 app = Flask(__name__)
 from downloader import handle_download
@@ -26,11 +26,12 @@ def hello():
         target_url = request.form['target_url']
         content_mask = request.form['content_mask']
         app.logger.debug("target_url=%s, content_mask=%s, path=%s", target_url, content_mask, environ.get("YT_DOWNLOADER_PATH"))
-        job = QUEUE.enqueue(handle_download, target_url, content_mask)
-
-        return str({"job_id": job.id})
+        QUEUE.enqueue(handle_download, target_url, content_mask)
+        return redirect("/")
     
     return render_template('index.html')
+
+
 
 def runApp():
     should_be_debug = environ["DEBUG"]

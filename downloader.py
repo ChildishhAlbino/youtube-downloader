@@ -141,8 +141,12 @@ def download_video_direct(args):
             merge_audio_and_video(video_res, audio_res, subtitle_file_path, output_path)
             return output_path
         elif(audio_res):
+            output_path = audio_res.replace("__AUDIO__", "").replace(temporary_folder_path, destination_folder_path)
+            shutil.copy2(audio_res, output_path)
             return audio_res
         else:
+            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path, destination_folder_path)
+            shutil.copy2(video_res, output_path)
             return video_res
     except Exception as ex:
         logger.error(f"Error when downloading video: {video.title}... Details: {ex}")

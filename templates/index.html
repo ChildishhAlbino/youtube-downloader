@@ -1,15 +1,35 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>⬇️ Downloader</title>
+    <title>MyTube</title>
     <style>
       body {
+        --bg: #101010;
+        --text: #fefefe;
         height: 100vh;
         display: flex;
-
+        background-color: var(--bg);
         align-items: center;
         justify-content: center;
         text-align: center;
+        font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+      }
+      
+      h1,
+      a,
+      p,
+      b,
+      i {
+        color: var(--text);
+      }
+
+      input {
+        background-color: var(--bg);
+        color: var(--text);
+      }
+
+      label {
+        color: var(--text);
       }
 
       .drop-zone {
@@ -23,40 +43,71 @@
         justify-content: center;
         /* cursor: pointer; */
       }
+      form {
+        display: flex;
+        flex-flow: column nowrap;
+        justify-content: space-between;
+      }
+
+      .horizontal {
+        display: flex;
+        flex-flow: row nowrap;
+        justify-content: space-between;
+      }
 
       .drop-zone.dragover {
         background-color: #f0f0f0;
       }
 
+      hr {
+        width: 35vw;
+        height: 3px;
+        background-color: var(--text);
+      }
+
       #url-form-field {
-        width: 25vw;
+        width: 35vw;
         min-height: 3em;
       }
 
+      body {
+        overflow-y: hidden; /* Hide vertical scrollbar */
+        overflow-x: hidden; /* Hide horizontal scrollbar */
+      }
+
       #submit-button {
-        width: 25vw;
+        width: 35vw;
         min-height: 3em;
+        background-color: #399653;
       }
     </style>
   </head>
   <body>
     <div id="dropZone" class="drop-zone">
       <h1>YT DOWNLOADER</h1>
+      <hr/>
       <form
         id="uploadForm"
         action="/"
         method="post"
         enctype="multipart/form-data"
       >
-        <label for="url-form-field">URL: </label><br>
-        <input required type="text" id="url-form-field" name="target_url"/>
+        <input pattern="https:\/\/www.youtube.com\/.*(v=.*|list=.*)" placeholder="Paste your URL here..." required type="text" id="url-form-field" name="target_url"/>
         <br/>
-        <input checked required type="radio" id="mask1" name="content_mask" value="ALL">
-        <label for="age1">All</label><br>
-        <input type="radio" id="mask2" name="content_mask" value="VIDEO">
-        <label for="age2">Video Only</label><br>  
-        <input type="radio" id="mask3" name="content_mask" value="AUDIO">
-        <label for="age3">Audio Only</label>
+        <span class="horizontal">
+          <span>
+            <label for="age1">All</label>
+            <input checked required type="radio" id="mask1" name="content_mask" value="ALL">
+          </span>
+          <span>
+            <label for="age2">Video Only</label> 
+            <input type="radio" id="mask2" name="content_mask" value="VIDEO">
+          </span>
+          <span>
+            <label for="age3">Audio Only</label>
+            <input type="radio" id="mask3" name="content_mask" value="AUDIO">
+          </span>
+        </span>
         <br/>
         <br/>
         <input id="submit-button" type="submit" value="Download!" />
