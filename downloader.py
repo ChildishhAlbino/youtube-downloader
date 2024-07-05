@@ -1,12 +1,9 @@
-from pytube import YouTube, Playlist
+from pytubefix import YouTube, Playlist
 from ffmpy import FFmpeg
 from os.path import exists
 from os import makedirs, remove, environ
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-import xml.etree.ElementTree as ElementTree
-from html import unescape
 import time
-import math
 import logging
 import uuid
 import shutil
@@ -34,9 +31,9 @@ def get_folder_path(folder_name):
 
 def make_folder_if_not_exists(folder_name):
     path = get_folder_path(folder_name)
-    logger.info(f"Checking if path={path} exists...")
+    logger.debug(f"Checking if path={path} exists...")
     if not exists(path):
-        logger.info("MAKING DIRECTORY " + str(path))
+        logger.debug("MAKING DIRECTORY " + str(path))
         makedirs(path)
 
 
@@ -61,48 +58,26 @@ def download_playlist(job_id, url, options):
     with ProcessPoolExecutor(max_workers=max_process_workers) as t:
         mapped = t.map(download_video_direct, mapped)
         mapped = [item for item in mapped]
-    logger.info(mapped)
-    shutil.rmtree(get_folder_path(f".tmp/{job_id}"))
+    logger.info(f"Results: {mapped}")
     if should_convert_mp3:
         with ThreadPoolExecutor() as t:
             mapped = t.map(convert_to_mp3, mapped)
+    time.sleep(10)
+    shutil.rmtree(get_folder_path(f".tmp/{job_id}"))
 
-def get_video_from_url(video):
+def on_progress(stream, chunk: bytes, bytes_remaining: int):
+    filesize = stream.filesize
+    bytes_received = filesize - bytes_remaining
+    percentage = (bytes_received / filesize) * 100
+    logger.info(f"Downloading {stream.title}={percentage:.2f}%")
+
+def get_video_from_url(url):
     try:
-        video = YouTube(video)
+        video = YouTube(url, use_oauth=True, allow_oauth_cache=True, on_progress_callback=on_progress)
         return video
-    except Exception:
+    except Exception as ex:
+        logger.error(f"Error while fetching Youtube video for url {url}. Details: {ex}")
         return None
-
-def float_to_srt_time_format(d: float) -> str:
-    fraction, whole = math.modf(d)
-    time_fmt = time.strftime("%H:%M:%S,", time.gmtime(whole))
-    ms = f"{fraction:.3f}".replace("0.", "")
-    return time_fmt + ms
-
-def convert_subtitles_to_srt(xml):
-    segments = []
-    root = ElementTree.fromstring(xml).find('body')
-    for i, child in enumerate(list(root)):
-        text = child.text or ""
-        for s_tag in child:
-            text += s_tag.text
-        caption = unescape(text.replace("\n", " ").replace("  ", " "),)
-        try:
-            duration = float(child.attrib["d"])/1000
-        except KeyError:
-            duration = 0.0
-        start = float(child.attrib["t"])/1000
-        end = start + duration
-        sequence_number = i + 1  # convert from 0-indexed to 1.
-        line = "{seq}\n{start} --> {end}\n{text}\n".format(
-            seq=sequence_number,
-            start=float_to_srt_time_format(start),
-            end=float_to_srt_time_format(end),
-            text=caption,
-        )
-        segments.append(line)
-    return "\n".join(segments).strip()
 
 BASE_RETRY_DELAY = 10
 def download_with_delayed_retry(source_title, stream, destination_folder_path, prefix):
@@ -124,7 +99,7 @@ def download_with_delayed_retry(source_title, stream, destination_folder_path, p
                 logger.warn(f"Sleep time ({sleep_duration} seconds) is getting very long. Please check errors and kill the job.")
             if(fib2 > 100):
                 raise Exception(f"'{source_title}' :: was retrying for way too long. Fix ya shtuff...")
-    logger.info(f"'{source_title}' :: {stream.type} is Completed.")
+    logger.debug(f"'{source_title}' :: {stream.type} is Completed.")
     return res
 
 def download_video_direct(args):
@@ -133,8 +108,12 @@ def download_video_direct(args):
     optional_path_section = get_path_section_if_exists(folder_name)
     temporary_folder_path=get_folder_path(f".tmp/{job_id}{optional_path_section}")
     destination_folder_path=temporary_folder_path.replace(f".tmp/{job_id}{optional_path_section}", f"{optional_path_section}")
-    logger.info(f"temp={temporary_folder_path} :: output={destination_folder_path}")
+    logger.debug(f"temp={temporary_folder_path} :: output={destination_folder_path}")
     try:
+        language_keys = [key.code for key in list(video.captions.keys()) if "en" in key.code and "a." not in key.code]
+        logger.debug(f"all_captions={language_keys}")       
+        english_captions = video.captions.get(language_keys[0]) if len(language_keys) > 0 else None
+        logger.debug(f"english_captions={english_captions}")
         logger.info("Downloading Video: %s" % video.title)
         highest_quality_video_stream = get_highest_quality_video_stream(video)
         logger.debug("Highest Quality Video Stream: " + str(highest_quality_video_stream))
@@ -143,13 +122,12 @@ def download_video_direct(args):
         video_res = download_with_delayed_retry(video.title, highest_quality_video_stream, temporary_folder_path, "__VIDEO__") if (should_download_video) else None
         audio_res = download_with_delayed_retry(video.title, highest_quality_audio_stream, temporary_folder_path, "__AUDIO__") if (should_download_audio) else None
     
-        subtitle_file_path=None
-        english_captions = video.captions['en'] if "en" in video.captions else None
         logger.info(f"{video.title} | Streams downloaded! Don't accidentally cross them!!")
 
+        subtitle_file_path=None
         if(english_captions != None):
             try:
-                srt_captions = convert_subtitles_to_srt(english_captions.xml_captions)
+                srt_captions = english_captions.generate_srt_captions()
                 subtitle_file_path = video_res.replace("__VIDEO__", "__SUBTITLES__").replace(".mp4", ".srt")
                 logger.info(subtitle_file_path)
                 with open(subtitle_file_path, "w") as f:
@@ -160,7 +138,6 @@ def download_video_direct(args):
         if(video_res and audio_res):
             output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path, destination_folder_path)
             make_folder_if_not_exists(folder_name)
-            logger.info(output_path)
             merge_audio_and_video(video_res, audio_res, subtitle_file_path, output_path)
             return output_path
         elif(audio_res):
@@ -173,12 +150,14 @@ def download_video_direct(args):
 
 def download_video(job_id, url, options):
     (should_download_video, should_download_audio, should_convert_mp3) = options
-    video = YouTube(url)
+    video = get_video_from_url(url)
     res = download_video_direct((job_id, video, None, options))
     if(should_convert_mp3):
         convert_to_mp3(res)
         if(not should_download_video and should_download_audio):
             remove(res)
+    time.sleep(10)
+    shutil.rmtree(get_folder_path(f".tmp/{job_id}"))
 
 def get_highest_quality_video_stream(video):
     relevant_streams = video.streams.filter(
@@ -188,10 +167,6 @@ def get_highest_quality_video_stream(video):
 def get_highest_quality_audio_stream(video):
     webm_stream = video.streams.get_audio_only("webm")
     return webm_stream if webm_stream else video.streams.get_audio_only()
-
-def print_streams_line_by_line(streams):
-    for stream in streams:
-        logger.info(stream)
 
 def convert_to_mp3(filePath):
     logger.info("Converting %s" % filePath)
@@ -204,7 +179,7 @@ def convert_to_mp3(filePath):
     return cmd.cmd
 
 def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
-    logger.info("Crossing the streams...")
+    logger.debug("Crossing the streams...")
     logger.debug("Creating merged file: %s" % output_path)
     inputs = {video_path: None, audio_path: None}
     if(subtitle_path != None):
@@ -216,7 +191,7 @@ def merge_audio_and_video(video_path, audio_path, subtitle_path, output_path):
         flags = environ["FFMPEG_GLOBAL_FLAGS"]
         global_options = global_options + f" {flags}"
 
-    logger.info(global_options)
+    logger.debug(global_options)
     cmd = FFmpeg(
         global_options=global_options,
         inputs=inputs,
