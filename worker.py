@@ -1,5 +1,5 @@
 from rq import Worker
-from os import environ, makedirs
+from os import environ, makedirs, path
 import redis
 import uuid
 import downloader
@@ -23,7 +23,8 @@ tokens_dict = {
     "access_token": ACCESS_TOKEN
 }
 cache_path=f"{get_python_lib()}/pytubefix/__cache__"
-makedirs(cache_path)
+if not (path.exists(cache_path)):
+    makedirs(cache_path)
 as_json = json.dumps(tokens_dict)
 with open(f"{cache_path}/tokens.json", "w") as f:
     f.write(as_json)

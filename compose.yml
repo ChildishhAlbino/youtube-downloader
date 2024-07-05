@@ -12,6 +12,7 @@ services:
       - "5000:5000"
     depends_on:
       - redis
+    restart: unless-stopped
   worker:
     user: 0:0
     build:
@@ -32,7 +33,9 @@ services:
       - ${OUTPUT_FILE_PATH}:/usr/src/app/downloads
     deploy:
       replicas: ${NUM_WORKERS:-1}
+    restart: unless-stopped
   redis:
     image: "redis:alpine"
     ports:
-    - "6379:6379"
+      - "6379:6379"
+    restart: unless-stopped
