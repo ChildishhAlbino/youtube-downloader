@@ -65,7 +65,7 @@ def on_progress(stream, chunk: bytes, bytes_remaining: int):
     filesize = stream.filesize
     bytes_received = filesize - bytes_remaining
     percentage = (bytes_received / filesize) * 100
-    logger.info(f"Downloading {stream.title}={percentage:.2f}%")
+    logger.info(f"Downloading {stream.type} steam for \"{stream.title}\"={percentage:.2f}%")
 
 def get_video_from_url(url):
     try:
