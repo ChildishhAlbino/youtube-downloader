@@ -1,12 +1,11 @@
 # save this as app.py
-from flask import Flask, render_template, request, redirect
-from os import environ
-app = Flask(__name__)
 from downloader import handle_download
 import redis
 from rq import Queue
 import rq_dashboard
-
+from flask import Flask, render_template, request, redirect
+from os import environ
+app = Flask(__name__)
 TIMEOUT = 60 * 60 * 12
 # https://python-rq.org/docs/results/#dealing-with-job-timeouts
 REDIS = redis.Redis(host=environ["REDIS_HOSTNAME"], port=6379, db=0)
@@ -38,7 +37,7 @@ def runApp():
     host = "0.0.0.0"
     port = 5000
     app.logger.info(f"{bool(should_be_debug)}")
-    if(bool(should_be_debug) == True):
+    if(bool(should_be_debug) is True):
         app.run(host=host, debug=True, port=port)
     else:
         from waitress import serve
