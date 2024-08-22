@@ -16,7 +16,7 @@ MAX_PROCESS_WORKERS_KEY="MAX_PROCESS_WORKERS"
 base_path = get_base_path()
 max_process_workers = int(environ.get(MAX_PROCESS_WORKERS_KEY)) if MAX_PROCESS_WORKERS_KEY in environ else 4
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def remove_relative_path_prefix(relative_path):
