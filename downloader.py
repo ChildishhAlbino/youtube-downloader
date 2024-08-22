@@ -8,12 +8,23 @@ import logging
 import uuid
 import shutil
 
+
+def get_base_path():
+    return str(environ.get("YT_DOWNLOADER_PATH"))
+
 MAX_PROCESS_WORKERS_KEY="MAX_PROCESS_WORKERS"
-base_path = str(environ.get("YT_DOWNLOADER_PATH"))
+base_path = get_base_path()
 max_process_workers = int(environ.get(MAX_PROCESS_WORKERS_KEY)) if MAX_PROCESS_WORKERS_KEY in environ else 4
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def remove_relative_path_prefix(relative_path):
+    value = relative_path
+    if("./" in relative_path[0:2]):
+        value = relative_path[2:]
+    logger.debug(f"derelative={value}")
+    return value
 
 def replace_illegal_chars(starting, illegal_chars=["|"]):
     current_value = starting
@@ -157,18 +168,24 @@ def download_video_direct(args):
             except Exception as ex:
                 logger.info("Generating subtitles did a bad...")
                 logger.info(str(ex))
+        temporary_folder_path_section = remove_relative_path_prefix(temporary_folder_path)
         if(video_res and audio_res):
-            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path, destination_folder_path)
+            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path_section, destination_folder_path)
+            # multiline strings don't work in logs
+            logger.debug(f"temp={temporary_folder_path_section}")
+            logger.debug(f"dest={destination_folder_path}")
+            logger.debug(f"output={output_path}")
+            
             make_folder_if_not_exists(folder_name)
             merge_audio_and_video(video_res, audio_res, subtitle_file_path, output_path)
             logger.info(f"{video.title} has been merged together.")
             return output_path
         elif(audio_res):
-            output_path = audio_res.replace("__AUDIO__", "").replace(temporary_folder_path, destination_folder_path)
+            output_path = audio_res.replace("__AUDIO__", "").replace(temporary_folder_path_section, destination_folder_path)
             shutil.copy2(audio_res, output_path)
             return audio_res
         else:
-            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path, destination_folder_path)
+            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path_section, destination_folder_path)
             shutil.copy2(video_res, output_path)
             return video_res
     except Exception as ex:
