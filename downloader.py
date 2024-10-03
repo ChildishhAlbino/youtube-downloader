@@ -80,7 +80,8 @@ def on_progress(stream, chunk: bytes, bytes_remaining: int):
 
 def get_video_from_url(url):
     try:
-        video = YouTube(url, use_oauth=True, allow_oauth_cache=True, on_progress_callback=on_progress)
+        # TODO: Fix bug with client...
+        video = YouTube(url, client="MWEB", use_oauth=True, allow_oauth_cache=True, on_progress_callback=on_progress)
         return video
     except Exception as ex:
         logger.error(f"Error while fetching Youtube video for url {url}. Details: {ex}")
@@ -170,7 +171,7 @@ def download_video_direct(args):
                 logger.info(str(ex))
         temporary_folder_path_section = remove_relative_path_prefix(temporary_folder_path)
         if(video_res and audio_res):
-            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path_section, destination_folder_path)
+            output_path = video_res.replace("__VIDEO__", "").replace(temporary_folder_path_section, destination_folder_path).replace(".webm", ".mp4")
             # multiline strings don't work in logs
             logger.debug(f"temp={temporary_folder_path_section}")
             logger.debug(f"dest={destination_folder_path}")
@@ -189,6 +190,7 @@ def download_video_direct(args):
             shutil.copy2(video_res, output_path)
             return video_res
     except Exception as ex:
+        logger.error(f"{type(ex)}")
         logger.error(f"Error when downloading video: \"{video.title}\"... Details: {ex}")
         return None
 
@@ -287,11 +289,31 @@ def get_options_from_mask(mask):
     return (should_download_video, should_download_audio, should_convert_mp3)
 
 def handle_download(url, mask):
-    starting_time = time.perf_counter()
-    download(url, mask)
-    ending_time = time.perf_counter()
-    delta = ending_time - starting_time
-    output = delta / 60 if delta >= 60 else delta
-    unit_label = "minutes" if delta >= 60 else "seconds"
-    logger.info(f"Request completed in {output:.2f} {unit_label}")
-    return url
+    try:
+        starting_time = time.perf_counter()
+        download(url, mask)
+        ending_time = time.perf_counter()
+        delta = ending_time - starting_time
+        output = delta / 60 if delta >= 60 else delta
+        unit_label = "minutes" if delta >= 60 else "seconds"
+        logger.info(f"Request completed in {output:.2f} {unit_label}")
+        return url
+    except Exception as ex:
+        logger.error(ex)
+
+
+if __name__ == "__main__":
+    print("HELLO")
+    # transformer cybertron ep 1
+    url = "https://www.youtube.com/watch?v=G0UjB-ywdo4&t=365s"
+
+    # beyblade og ep 1
+    # url = "https://www.youtube.com/watch?v=MZX00vlN1ps"
+
+    # dmg 2024 guide
+    # url = "https://www.youtube.com/watch?v=xWNT9N3cE2U&t=2039s"
+
+    # cr c1 ep 1
+    url = "https://www.youtube.com/watch?v=i-p9lWIhcLQ&t=28s"
+
+    handle_download(url, "ALL")
