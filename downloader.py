@@ -289,6 +289,8 @@ def get_options_from_mask(mask):
     return (should_download_video, should_download_audio, should_convert_mp3)
 
 def handle_download(url, mask):
+    if url == None:
+        raise Exception("URL IS NULL!");
     try:
         starting_time = time.perf_counter()
         download(url, mask)
@@ -303,9 +305,10 @@ def handle_download(url, mask):
 
 
 if __name__ == "__main__":
-    print("HELLO")
+    print("Starting from the main dunder...")
+    url = None
     # transformer cybertron ep 1
-    url = "https://www.youtube.com/watch?v=G0UjB-ywdo4&t=365s"
+    # url = "https://www.youtube.com/watch?v=G0UjB-ywdo4&t=365s"
 
     # beyblade og ep 1
     # url = "https://www.youtube.com/watch?v=MZX00vlN1ps"
@@ -314,6 +317,6 @@ if __name__ == "__main__":
     # url = "https://www.youtube.com/watch?v=xWNT9N3cE2U&t=2039s"
 
     # cr c1 ep 1
-    url = "https://www.youtube.com/watch?v=i-p9lWIhcLQ&t=28s"
+    # url = "https://www.youtube.com/watch?v=i-p9lWIhcLQ&t=28s"
 
     handle_download(url, "ALL")
