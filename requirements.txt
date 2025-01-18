@@ -1,6 +1,6 @@
-ffmpy==0.3.2
+ffmpy>=0.3.2
 redis==5.0.7
 rq==1.16.2
 rq-dashboard==0.7.1.2
 waitress==3.0.0
-pytubefix==8.3.0
+pytubefix>=8.3.0

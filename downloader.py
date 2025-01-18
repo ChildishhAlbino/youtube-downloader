@@ -104,7 +104,7 @@ def download_with_delayed_retry(source_title, stream, destination_folder_path, p
             fib1 = temp
             logger.debug(f"fib1 = {fib1} | fib2 = {fib2}")
             if(fib2 > 30):
-                logger.warn(f"Sleep time ({sleep_duration} seconds) is getting very long. Please check errors and kill the job.")
+                logger.warning(f"Sleep time ({sleep_duration} seconds) is getting very long. Please check errors and kill the job.")
             if(fib2 > 100):
                 raise Exception(f"'{source_title}' :: was retrying for way too long. Fix ya shtuff...")
     logger.debug(f"'{source_title}' :: {stream.type} is Completed.")
@@ -134,7 +134,7 @@ def get_captions_with_delayed_retry(video):
 
 def download_video_direct(args):
     (download_id, video, folder_name, options) = args
-    (should_download_video, should_download_audio, _) = options
+    (should_download_video, should_download_audio, convert_to_mp3) = options
     optional_path_section = get_path_section_if_exists(folder_name)
     temporary_download_folder = get_temporary_download_folder(download_id=download_id)
     temporary_folder_section = f"{temporary_download_folder}{optional_path_section}"
@@ -196,6 +196,7 @@ def download_video_direct(args):
 
 def download_video(download_id, url, options):
     (should_download_video, should_download_audio, should_convert_mp3) = options
+    logger.info(f"{should_download_audio} {should_convert_mp3}")
     video = get_video_from_url(url)
     res = download_video_direct((download_id, video, None, options))
     if res is None:
@@ -217,7 +218,7 @@ def get_highest_quality_audio_stream(video):
 def convert_to_mp3(filePath):
     logger.info("Converting %s" % filePath)
     cmd = FFmpeg(
-        global_options="-loglevel quiet -y",
+        global_options="-loglevel quiet -y -vn -ar 44100 -ac 2 -q:a 0",
         inputs={filePath: None},
         outputs={filePath.replace(".mp4", ".mp3").replace(".webm", ".mp3"): None}
     )
@@ -307,6 +308,7 @@ def handle_download(url, mask):
 if __name__ == "__main__":
     print("Starting from the main dunder...")
     url = None
+    mask = "ALL"
     # transformer cybertron ep 1
     # url = "https://www.youtube.com/watch?v=G0UjB-ywdo4&t=365s"
 
@@ -319,4 +321,10 @@ if __name__ == "__main__":
     # cr c1 ep 1
     # url = "https://www.youtube.com/watch?v=i-p9lWIhcLQ&t=28s"
 
-    handle_download(url, "ALL")
+    # frieza says hello monkeys
+    url = "https://www.youtube.com/watch?v=CNRJD2cDpiE"
+
+    mask = "AUDIO"
+    # mask = "VIDEO"
+
+    handle_download(url, mask)
