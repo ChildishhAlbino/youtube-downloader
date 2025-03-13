@@ -1,5 +1,6 @@
 services:
   handler:
+    container_name: "mytube-handler"
     build:
       context: .
       dockerfile: handler.Dockerfile
@@ -14,6 +15,7 @@ services:
       - redis
     restart: unless-stopped
   worker:
+    container_name: "mytube-worker"
     user: 0:0
     build:
       context: .
@@ -37,6 +39,7 @@ services:
       replicas: ${NUM_WORKERS:-1}
     restart: unless-stopped
   redis:
+    container_name: "mytube-redis"
     image: "redis:alpine"
     ports:
       - "6379:6379"
