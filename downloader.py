@@ -10,12 +10,23 @@ import shutil
 
 
 def get_base_path():
-    return str(environ.get("YT_DOWNLOADER_PATH"))
+    env_var = environ.get("YT_DOWNLOADER_PATH")
+    return str(env_var) if env_var is not None else "downloads"
+
+base_path = get_base_path()
 
 MAX_PROCESS_WORKERS_KEY="MAX_PROCESS_WORKERS"
-base_path = get_base_path()
 max_process_workers = int(environ.get(MAX_PROCESS_WORKERS_KEY)) if MAX_PROCESS_WORKERS_KEY in environ else 4
+PLAYLIST_CHUNK_SIZE_KEY="PLAYLIST_CHUNK_SIZE"
+playlist_chunk_size = int(environ.get(PLAYLIST_CHUNK_SIZE_KEY)) if PLAYLIST_CHUNK_SIZE_KEY in environ else 2
+PLAYLIST_CHUNK_COOLDOWN_SECONDS_KEY="PLAYLIST_CHUNK_COOLDOWN_SECONDS"
+playlist_chunk_cooldown_seconds = int(environ.get(PLAYLIST_CHUNK_COOLDOWN_SECONDS_KEY)) if PLAYLIST_CHUNK_COOLDOWN_SECONDS_KEY in environ else 15
+ACCESS_TOKEN_KEY="ACCESS_TOKEN"
+access_token_supplied = ACCESS_TOKEN_KEY in environ
+REFRESH_TOKEN_KEY="ACCESS_TOKEN"
+refresh_token_supplied = REFRESH_TOKEN_KEY in environ
 
+token_file = "./tokens.json" if not access_token_supplied and not refresh_token_supplied else None
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -61,16 +72,26 @@ def download_playlist(download_id, url, options):
     make_folder_if_not_exists(folder_path)
     logger.debug(playlist)
     logger.debug(f"Playlist length: {len(playlist.video_urls)}")
-    with ThreadPoolExecutor() as t:
-        mapped = t.map(get_video_from_url, playlist.video_urls)
-        mapped = [(download_id, item, folder_name, options) for item in mapped]
-    with ProcessPoolExecutor(max_workers=max_process_workers) as t:
-        mapped = t.map(download_video_direct, mapped)
-        mapped = [item for item in mapped]
-    logger.info(f"Results: {mapped}")
-    if should_convert_mp3:
+    urls = playlist.video_urls
+    results = []
+    playlist_chunks = [urls[i:i + playlist_chunk_size] for i in range(0, len(urls), playlist_chunk_size)]
+    logger.info(f"{playlist_chunks, len(playlist_chunks)}")
+
+    for chunk in playlist_chunks:
+        print("Download playlist chunk: ", chunk)
         with ThreadPoolExecutor() as t:
-            mapped = t.map(convert_to_mp3, mapped)
+            mapped = t.map(get_video_from_url, chunk)
+            mapped = [(download_id, item, folder_name, options) for item in mapped]
+        with ProcessPoolExecutor(max_workers=max_process_workers) as t:
+            mapped = t.map(download_video_direct, mapped)
+            mapped = [item for item in mapped]
+        logger.info(f"Results: {mapped}")
+        if should_convert_mp3:
+            with ThreadPoolExecutor() as t:
+                mapped = t.map(convert_to_mp3, mapped)
+        results.extend(mapped)
+        logger.info(f"Sleeping for {playlist_chunk_cooldown_seconds} before starting next chunk. This is to avoid/reduce likelihood of token pausing.")
+        time.sleep(playlist_chunk_cooldown_seconds)
 
 def on_progress(stream, chunk: bytes, bytes_remaining: int):
     filesize = stream.filesize
@@ -80,8 +101,7 @@ def on_progress(stream, chunk: bytes, bytes_remaining: int):
 
 def get_video_from_url(url):
     try:
-        # TODO: Fix bug with client...
-        video = YouTube(url, client="MWEB", use_oauth=True, allow_oauth_cache=True, on_progress_callback=on_progress)
+        video = YouTube(url, client="MWEB", use_oauth=True, allow_oauth_cache=True, token_file=token_file, on_progress_callback=on_progress)
         return video
     except Exception as ex:
         logger.error(f"Error while fetching Youtube video for url {url}. Details: {ex}")
@@ -290,6 +310,8 @@ def get_options_from_mask(mask):
     return (should_download_video, should_download_audio, should_convert_mp3)
 
 def handle_download(url, mask):
+    logger.info(f"hasAccessTokenEnv: {access_token_supplied} AND hasRefreshToken: {refresh_token_supplied}")
+    logger.info(f"Token File: {token_file}")
     if url == None:
         raise Exception("URL IS NULL!");
     try:
@@ -324,7 +346,10 @@ if __name__ == "__main__":
     # frieza says hello monkeys
     url = "https://www.youtube.com/watch?v=CNRJD2cDpiE"
 
-    mask = "AUDIO"
+    # reverse trivia 202X
+    url = "https://www.youtube.com/playlist?list=PLrkYtXgEpu5RDaX3JJ1qCpY7LgMooGbSN"
+
+    # mask = "AUDIO"
     # mask = "VIDEO"
 
     handle_download(url, mask)
