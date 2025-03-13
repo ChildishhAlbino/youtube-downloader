@@ -74,9 +74,11 @@ def download_playlist(download_id, url, options):
     logger.debug(f"Playlist length: {len(playlist.video_urls)}")
     urls = playlist.video_urls
     results = []
-    playlist_chunks = [urls[i:i + playlist_chunk_size] for i in range(0, len(urls), playlist_chunk_size)]
-    logger.info(f"{playlist_chunks, len(playlist_chunks)}")
-
+    logger.info("CHUNK SIZE")
+    playlist_size=len(urls)
+    playlist_chunks = [urls[i:min(i + playlist_chunk_size, playlist_size)] for i in range(0, playlist_size, playlist_chunk_size)]
+    logger.info(f"Downloading playlist in {len(playlist_chunks)} chunks of at most {playlist_chunk_size}...")
+    
     for chunk in playlist_chunks:
         print("Download playlist chunk: ", chunk)
         with ThreadPoolExecutor() as t:
@@ -344,10 +346,13 @@ if __name__ == "__main__":
     # url = "https://www.youtube.com/watch?v=i-p9lWIhcLQ&t=28s"
 
     # frieza says hello monkeys
-    url = "https://www.youtube.com/watch?v=CNRJD2cDpiE"
+    #url = "https://www.youtube.com/watch?v=CNRJD2cDpiE"
 
     # reverse trivia 202X
-    url = "https://www.youtube.com/playlist?list=PLrkYtXgEpu5RDaX3JJ1qCpY7LgMooGbSN"
+    #url = "https://www.youtube.com/playlist?list=PLrkYtXgEpu5RDaX3JJ1qCpY7LgMooGbSN"
+
+    # cr c3 playlist
+    url = "https://www.youtube.com/playlist?list=PL1tiwbzkOjQydg3QOkBLG9OYqWJ0dwlxF"
 
     # mask = "AUDIO"
     # mask = "VIDEO"
