@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: handler.Dockerfile
+    image: "mytube-handler:${DOCKER_TAG}"
     environment:
       YT_DOWNLOADER_PATH: ./downloads
       REDIS_HOSTNAME: redis
@@ -19,6 +20,7 @@ services:
     build:
       context: .
       dockerfile: worker.Dockerfile
+    image: "mytube-worker:${DOCKER_TAG}"
     environment:
       YT_DOWNLOADER_PATH: ./downloads
       REDIS_HOSTNAME: redis
