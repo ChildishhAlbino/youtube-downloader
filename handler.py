@@ -6,7 +6,8 @@ import rq_dashboard
 from flask import Flask, render_template, request, redirect
 from os import environ
 app = Flask(__name__)
-TIMEOUT = 60 * 60 * 12
+TIMEOUT_IN_DAYS = 4
+TIMEOUT = 60 * 60 * 24 * TIMEOUT_IN_DAYS
 # https://python-rq.org/docs/results/#dealing-with-job-timeouts
 REDIS = redis.Redis(host=environ["REDIS_HOSTNAME"], port=6379, db=0)
 QUEUE = Queue(environ["QUEUE_NAME"], default_timeout=TIMEOUT, connection=REDIS)  # no args implies the default queue

@@ -1,4 +1,4 @@
-from pytubefix import Stream, YouTube, Playlist
+from pytubefix import YouTube, Playlist
 from ffmpy import FFmpeg
 from os.path import exists
 from os import makedirs, remove, environ
@@ -7,7 +7,7 @@ import time
 import logging
 import uuid
 import shutil
-
+from random import shuffle
 
 def get_base_path():
     env_var = environ.get("YT_DOWNLOADER_PATH")
@@ -18,7 +18,7 @@ base_path = get_base_path()
 MAX_PROCESS_WORKERS_KEY="MAX_PROCESS_WORKERS"
 max_process_workers = int(environ.get(MAX_PROCESS_WORKERS_KEY)) if MAX_PROCESS_WORKERS_KEY in environ else 4
 PLAYLIST_CHUNK_SIZE_KEY="PLAYLIST_CHUNK_SIZE"
-playlist_chunk_size = int(environ.get(PLAYLIST_CHUNK_SIZE_KEY)) if PLAYLIST_CHUNK_SIZE_KEY in environ else 2
+playlist_chunk_size = int(environ.get(PLAYLIST_CHUNK_SIZE_KEY)) if PLAYLIST_CHUNK_SIZE_KEY in environ else 10
 PLAYLIST_CHUNK_COOLDOWN_SECONDS_KEY="PLAYLIST_CHUNK_COOLDOWN_SECONDS"
 playlist_chunk_cooldown_seconds = int(environ.get(PLAYLIST_CHUNK_COOLDOWN_SECONDS_KEY)) if PLAYLIST_CHUNK_COOLDOWN_SECONDS_KEY in environ else 15
 ACCESS_TOKEN_KEY="ACCESS_TOKEN"
@@ -72,28 +72,32 @@ def download_playlist(download_id, url, options):
     make_folder_if_not_exists(folder_path)
     logger.debug(playlist)
     logger.debug(f"Playlist length: {len(playlist.video_urls)}")
-    urls = playlist.video_urls
+    urls = [url for url in playlist.video_urls]
+    # Shuffle the order of the playlist to reduce bot detection
+    shuffle(urls)
     results = []
-    logger.info("CHUNK SIZE")
     playlist_size=len(urls)
     playlist_chunks = [urls[i:min(i + playlist_chunk_size, playlist_size)] for i in range(0, playlist_size, playlist_chunk_size)]
     logger.info(f"Downloading playlist in {len(playlist_chunks)} chunks of at most {playlist_chunk_size}...")
     
-    for chunk in playlist_chunks:
-        print("Download playlist chunk: ", chunk)
-        with ThreadPoolExecutor() as t:
-            mapped = t.map(get_video_from_url, chunk)
-            mapped = [(download_id, item, folder_name, options) for item in mapped]
-        with ProcessPoolExecutor(max_workers=max_process_workers) as t:
-            mapped = t.map(download_video_direct, mapped)
-            mapped = [item for item in mapped]
-        logger.info(f"Results: {mapped}")
-        if should_convert_mp3:
-            with ThreadPoolExecutor() as t:
-                mapped = t.map(convert_to_mp3, mapped)
-        results.extend(mapped)
-        logger.info(f"Sleeping for {playlist_chunk_cooldown_seconds} before starting next chunk. This is to avoid/reduce likelihood of token pausing.")
-        time.sleep(playlist_chunk_cooldown_seconds)
+    for (index, chunk) in enumerate(playlist_chunks):
+        # print("Download playlist chunk: ", chunk)
+        # with ThreadPoolExecutor() as t:
+        #     mapped = t.map(get_video_from_url, chunk)
+        #     mapped = [(download_id, item, folder_name, options) for item in mapped]
+        # with ProcessPoolExecutor(max_workers=max_process_workers) as t:
+        #     mapped = t.map(download_video_direct, mapped)
+        #     mapped = [item for item in mapped]
+        # logger.info(f"Results: {mapped}")
+        # if should_convert_mp3:
+        #     with ThreadPoolExecutor() as t:
+        #         mapped = t.map(convert_to_mp3, mapped)
+        # results.extend(mapped)
+        if (index != len(playlist_chunks) - 1):
+            logger.info(f"Sleeping for {playlist_chunk_cooldown_seconds} before starting next chunk. This is to avoid/reduce likelihood of token pausing.")
+            time.sleep(playlist_chunk_cooldown_seconds)
+    logger.info(f"Finishing all chunks for {url}")
+    logger.info(f"Results: {results}")
 
 def on_progress(stream, chunk: bytes, bytes_remaining: int):
     filesize = stream.filesize
@@ -349,10 +353,10 @@ if __name__ == "__main__":
     #url = "https://www.youtube.com/watch?v=CNRJD2cDpiE"
 
     # reverse trivia 202X
-    #url = "https://www.youtube.com/playlist?list=PLrkYtXgEpu5RDaX3JJ1qCpY7LgMooGbSN"
+    url = "https://www.youtube.com/playlist?list=PLrkYtXgEpu5RDaX3JJ1qCpY7LgMooGbSN"
 
     # cr c3 playlist
-    url = "https://www.youtube.com/playlist?list=PL1tiwbzkOjQydg3QOkBLG9OYqWJ0dwlxF"
+    #url = "https://www.youtube.com/playlist?list=PL1tiwbzkOjQydg3QOkBLG9OYqWJ0dwlxF"
 
     # mask = "AUDIO"
     # mask = "VIDEO"
