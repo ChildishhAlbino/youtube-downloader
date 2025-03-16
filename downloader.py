@@ -81,18 +81,18 @@ def download_playlist(download_id, url, options):
     logger.info(f"Downloading playlist in {len(playlist_chunks)} chunks of at most {playlist_chunk_size}...")
     
     for (index, chunk) in enumerate(playlist_chunks):
-        # print("Download playlist chunk: ", chunk)
-        # with ThreadPoolExecutor() as t:
-        #     mapped = t.map(get_video_from_url, chunk)
-        #     mapped = [(download_id, item, folder_name, options) for item in mapped]
-        # with ProcessPoolExecutor(max_workers=max_process_workers) as t:
-        #     mapped = t.map(download_video_direct, mapped)
-        #     mapped = [item for item in mapped]
-        # logger.info(f"Results: {mapped}")
-        # if should_convert_mp3:
-        #     with ThreadPoolExecutor() as t:
-        #         mapped = t.map(convert_to_mp3, mapped)
-        # results.extend(mapped)
+        print("Download playlist chunk: ", chunk)
+        with ThreadPoolExecutor() as t:
+            mapped = t.map(get_video_from_url, chunk)
+            mapped = [(download_id, item, folder_name, options) for item in mapped]
+        with ProcessPoolExecutor(max_workers=max_process_workers) as t:
+            mapped = t.map(download_video_direct, mapped)
+            mapped = [item for item in mapped]
+        logger.info(f"Results: {mapped}")
+        if should_convert_mp3:
+            with ThreadPoolExecutor() as t:
+                mapped = t.map(convert_to_mp3, mapped)
+        results.extend(mapped)
         if (index != len(playlist_chunks) - 1):
             logger.info(f"Sleeping for {playlist_chunk_cooldown_seconds} before starting next chunk. This is to avoid/reduce likelihood of token pausing.")
             time.sleep(playlist_chunk_cooldown_seconds)
