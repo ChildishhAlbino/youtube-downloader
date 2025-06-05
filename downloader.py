@@ -64,14 +64,14 @@ def get_path_section_if_exists(section):
 
 def download_playlist(download_id, url, options):
     (_, _, should_convert_mp3) = options
-    playlist = Playlist(url)
+    playlist = Playlist(url, client="MWEB", use_oauth=True, allow_oauth_cache=True, token_file=token_file)
     logger.info(playlist.title)
     folder_name = replace_illegal_chars(playlist.title)
     temporary_download_folder = get_temporary_download_folder(download_id=download_id)
     folder_path = f"{temporary_download_folder}/{get_path_section_if_exists(folder_name)}"
     make_folder_if_not_exists(folder_path)
     logger.debug(playlist)
-    logger.debug(f"Playlist length: {len(playlist.video_urls)}")
+    logger.info(f"Playlist length: {len(playlist.video_urls)}")
     urls = [url for url in playlist.video_urls]
     # Shuffle the order of the playlist to reduce bot detection
     shuffle(urls)
@@ -106,12 +106,25 @@ def on_progress(stream, chunk: bytes, bytes_remaining: int):
     logger.info(f"Downloading {stream.type} steam for \"{stream.title}\"={percentage:.2f}%")
 
 def get_video_from_url(url):
-    try:
-        video = YouTube(url, client="MWEB", use_oauth=True, allow_oauth_cache=True, token_file=token_file, on_progress_callback=on_progress)
-        return video
-    except Exception as ex:
-        logger.error(f"Error while fetching Youtube video for url {url}. Details: {ex}")
-        return None
+    res = None
+    fib1 = 0
+    fib2 = 1
+    while(res is None):
+        try:    
+            res = YouTube(url, client="MWEB", use_oauth=True, allow_oauth_cache=True, token_file=token_file, on_progress_callback=on_progress)
+        except Exception as ex:
+            sleep_duration = BASE_RETRY_DELAY * fib2
+            logger.error(f"Error while fetching Youtube video for url {url}. Details: {ex}. Sleeping {sleep_duration} seconds...")
+            time.sleep(sleep_duration)
+            temp = fib2
+            fib2 = fib2 + fib1
+            fib1 = temp
+            logger.debug(f"fib1 = {fib1} | fib2 = {fib2}")
+            if(fib2 > 30):
+                logger.warning(f"Sleep time ({sleep_duration} seconds) is getting very long. Please check errors and kill the job.")
+            if(fib2 > 100):
+                raise Exception(f"'{url}' :: was retrying for way too long. Fix ya shtuff...")
+    return res
 
 BASE_RETRY_DELAY = 10
 def download_with_delayed_retry(source_title, stream, destination_folder_path, prefix) -> str:
@@ -160,6 +173,11 @@ def get_captions_with_delayed_retry(video):
 
 def download_video_direct(args):
     (download_id, video, folder_name, options) = args
+
+    if(video is None):
+        logger.info("Video not found...")
+        return None
+
     (should_download_video, should_download_audio, convert_to_mp3) = options
     optional_path_section = get_path_section_if_exists(folder_name)
     temporary_download_folder = get_temporary_download_folder(download_id=download_id)
@@ -358,6 +376,8 @@ if __name__ == "__main__":
     # cr c3 playlist
     #url = "https://www.youtube.com/playlist?list=PL1tiwbzkOjQydg3QOkBLG9OYqWJ0dwlxF"
 
+    url = "https://www.youtube.com/watch?v=tyvNP1FIJIo&list=PLQ47tOKBOCMPd0oE096o6e6JFWUZSEa0C"
+    url = "https://www.youtube.com/playlist?list=PLQ47tOKBOCMPd0oE096o6e6JFWUZSEa0C"
     # mask = "AUDIO"
     # mask = "VIDEO"
 
