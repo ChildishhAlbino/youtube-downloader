@@ -306,13 +306,16 @@ def download(url, content_mask):
         download_playlist(download_id, url, options)
     elif "/watch?v=" in url:
         download_video(download_id, url, options)
+    elif "/shorts/" in url:
+        download_video(download_id, url, options)
     else:
-        logger.info("Please provide a valid Youtube Link.")
+        logger.info(f"{url} is Invalid... Please provide a valid Youtube Link.")
     logger.info("Download finished. Waiting 10 seconds to do cleanup...")
     time.sleep(10)
     shutil.rmtree(get_folder_path(temporary_download_folder))
 
 def get_options_from_mask(mask):
+
     should_download_audio = False
     should_download_video = False
     should_convert_mp3 = False
@@ -380,5 +383,7 @@ if __name__ == "__main__":
     url = "https://www.youtube.com/playlist?list=PLQ47tOKBOCMPd0oE096o6e6JFWUZSEa0C"
     # mask = "AUDIO"
     # mask = "VIDEO"
+
+    url = "https://www.youtube.com/shorts/NojkAYl9srM"
 
     handle_download(url, mask)
