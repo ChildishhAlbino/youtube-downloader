@@ -386,4 +386,6 @@ if __name__ == "__main__":
 
     url = "https://www.youtube.com/shorts/NojkAYl9srM"
 
+    url = "https://www.youtube.com/playlist?list=PL1tiwbzkOjQxygnACZdKLhzTTB3CoM8gi"
+
     handle_download(url, mask)
